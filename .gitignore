@@ -1,6 +1,6 @@
 # ── Large data — never commit ──────────────────────────────────────────────
 audio/
-transcripts/
+
 chroma_db/
 
 # ── Results & checkpoints (generated outputs) ──────────────────────────────
