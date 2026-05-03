@@ -1,0 +1,35 @@
+# ── Large data — never commit ──────────────────────────────────────────────
+audio/
+transcripts/
+chroma_db/
+
+# ── Results & checkpoints (generated outputs) ──────────────────────────────
+results/*.csv
+results/*.checkpoint.json
+results/*.progress.json
+
+# ── Secrets ────────────────────────────────────────────────────────────────
+.env
+
+# ── Logs ───────────────────────────────────────────────────────────────────
+*.log
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# ── Streamlit ──────────────────────────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── OS / editor ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# ── Claude internal ────────────────────────────────────────────────────────
+.claude/
