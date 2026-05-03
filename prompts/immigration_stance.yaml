@@ -1,0 +1,70 @@
+name: immigration_stance
+description: Classify Rush Limbaugh's stance on immigration policy with citations.
+
+system: |
+  You are a political science researcher coding talk radio transcripts for a study
+  on media influence and public opinion. Your task is to analyse transcripts and
+  return structured JSON. Be precise and evidence-based. Citations must be verbatim
+  quotes from the provided text.
+
+prompt: |
+  Analyse the following Rush Limbaugh transcript and classify his stance on
+  immigration policy.
+
+  Stance labels:
+  - "restrict"  = favours stricter enforcement, opposes amnesty/reform/open borders
+  - "support"   = favours immigration reform, a path to citizenship, or open policy
+  - "mixed"     = expresses both restrictive and supportive views, or is ambiguous
+  - "neutral"   = immigration is mentioned but no clear stance is taken
+  - "absent"    = immigration is not meaningfully discussed in this episode
+
+  Return ONLY the following JSON object — use EXACTLY these field names, no others:
+
+  {
+    "stance": "<restrict | support | mixed | neutral | absent>",
+    "confidence": <number between 0.0 and 1.0>,
+    "summary": "<2-3 sentence qualitative summary of the immigration content>",
+    "citations": [
+      "<verbatim quote from transcript, max 120 chars>",
+      "<verbatim quote from transcript, max 120 chars>"
+    ],
+    "topics": ["<sub-topic>", "<sub-topic>"]
+  }
+
+  Rules:
+  - citations must be exact word-for-word quotes copied from the transcript below
+  - topics = specific immigration sub-topics mentioned (e.g. amnesty, border wall, DACA, deportation)
+  - output nothing except the JSON object
+  /no_think
+
+  Transcript:
+  {text}
+
+output_fields:
+  - stance
+  - confidence
+  - summary
+  - citations
+  - topics
+
+output_schema:
+  type: object
+  required: [stance, confidence, summary, citations, topics]
+  properties:
+    stance:
+      type: string
+      enum: [restrict, support, mixed, neutral, absent]
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    summary:
+      type: string
+    citations:
+      type: array
+      items:
+        type: string
+    topics:
+      type: array
+      items:
+        type: string
