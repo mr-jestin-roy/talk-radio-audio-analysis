@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+
+  # ── Vector DB ──────────────────────────────────────────────────────────────
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.0
+    ports:
+      - "8080:8080"    # REST API
+      - "50051:50051"  # gRPC
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'   # we supply our own vectors
+      ENABLE_MODULES: ''
+      CLUSTER_HOSTNAME: 'node1'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Streamlit UI ───────────────────────────────────────────────────────────
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./transcripts:/app/transcripts:ro   # transcripts (read-only)
+      - ./prompts:/app/prompts              # prompt YAMLs
+      - ./results:/app/results             # batch output CSVs
+    environment:
+      - WEAVIATE_URL=${WEAVIATE_URL:-http://weaviate:8080}
+      - WEAVIATE_API_KEY=${WEAVIATE_API_KEY:-}
+      - LLM_URL=${LLM_URL}
+      - LLM_MODEL=${LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      - LLM_API_KEY=${LLM_API_KEY:-dummy}
+    depends_on:
+      weaviate:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  weaviate_data:
