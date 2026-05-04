@@ -1,0 +1,49 @@
+# ── Large data — mounted as volumes, not baked in ─────────────────────────
+audio/
+transcripts/
+chroma_db/
+results/
+
+# ── Logs ───────────────────────────────────────────────────────────────────
+*.log
+*.checkpoint.json
+*.progress.json
+
+# ── Secrets ────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# ── Git / dev tooling ──────────────────────────────────────────────────────
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+.claude/
+
+# ── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Mockups / docs not needed in image ─────────────────────────────────────
+ui_mockup/
+*.md
+items*.txt
+download_manifest.csv
+transcribe_manifest.csv
+body.txt
+
+# ── Azure deploy artefacts ─────────────────────────────────────────────────
+azure/
+deploy.sh
+upload_data.sh

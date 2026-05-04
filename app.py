@@ -23,14 +23,19 @@ import retrieval
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
-TRANSCRIPTS_DIR = Path("transcripts")
-PROMPTS_DIR     = Path("prompts")
-RESULTS_DIR     = Path("results")
-RESULTS_DIR.mkdir(exist_ok=True)
+# Data directories — overridable via env (Azure mounts them at /app/data/…)
+TRANSCRIPTS_DIR = Path(os.environ.get("TRANSCRIPTS_DIR", "transcripts"))
+PROMPTS_DIR     = Path(os.environ.get("PROMPTS_DIR",     "prompts"))
+RESULTS_DIR     = Path(os.environ.get("RESULTS_DIR",     "results"))
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 LLM_URL     = os.environ.get("LLM_URL", "")
-LLM_MODEL   = os.environ.get("LLM_MODEL", "Qwen/Qwen3-8B-AWQ")
+LLM_MODEL   = os.environ.get("LLM_MODEL", "gemini-2.0-flash")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "dummy")
+
+def _is_gemini(url: str) -> bool:
+    """Gemini's OpenAI-compat endpoint doesn't support vllm-specific params."""
+    return "googleapis.com" in url or "gemini" in url.lower()
 
 DATE_RE = re.compile(r"rush-limbaugh-radio-show-(\d{4}-\d{2}-\d{2})")
 HOUR_RE = re.compile(r"hour-(\d)")
@@ -523,14 +528,31 @@ def tab_single(cfg: dict):
 
             with st.spinner("Calling LLM…"):
                 try:
-                    client = OpenAI(base_url=f"{cfg['llm_url'].rstrip('/')}/v1", api_key=LLM_API_KEY)
+                    gemini = _is_gemini(cfg["llm_url"])
+                    base_url = (
+                        cfg["llm_url"].rstrip("/")          # Gemini: full URL already
+                        if gemini
+                        else f"{cfg['llm_url'].rstrip('/')}/v1"
+                    )
+                    client = OpenAI(base_url=base_url, api_key=LLM_API_KEY)
                     resp   = client.chat.completions.create(
                         model=cfg["model"],
                         messages=[{"role":"system","content":system},
                                   {"role":"user","content":user_msg}],
                         temperature=0.0,
                         max_tokens=2048,
-                        extra_body={"guided_json": schema} if schema else {},
+                        # Gemini: use json_schema response_format (enforces fields like guided_json)
+                        # vllm:   use guided_json via extra_body
+                        **({"response_format": {
+                                "type": "json_schema",
+                                "json_schema": {
+                                    "name": "analysis_result",
+                                    "strict": True,
+                                    "schema": schema,
+                                },
+                            }} if gemini and schema
+                           else {"response_format": {"type": "json_object"}} if gemini
+                           else {"extra_body": {"guided_json": schema} if schema else {}}),
                     )
                     raw = resp.choices[0].message.content.strip()
                     raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()

@@ -26,7 +26,7 @@ from pathlib import Path
 import yaml
 from openai import AsyncOpenAI
 
-TRANSCRIPTS_DIR = Path("transcripts")
+TRANSCRIPTS_DIR = Path(os.environ.get("TRANSCRIPTS_DIR", "transcripts"))
 DATE_RE  = re.compile(r"rush-limbaugh-radio-show-(\d{4}-\d{2}-\d{2})")
 HOUR_RE  = re.compile(r"hour-(\d)")
 
@@ -105,17 +105,39 @@ def write_progress(path: Path, data: dict):
 
 # ── Async LLM call ────────────────────────────────────────────────────────────
 
+def _is_gemini(url: str) -> bool:
+    return "googleapis.com" in url or "gemini" in url.lower()
+
+
 async def call_llm(
     client: AsyncOpenAI,
     semaphore: asyncio.Semaphore,
     model: str,
     prompt_cfg: dict,
     transcript: str,
+    llm_url: str = "",
     retries: int = 3,
 ) -> dict:
-    system     = prompt_cfg.get("system", "You are a political science researcher.")
-    user_msg   = prompt_cfg["prompt"].replace("{text}", transcript[:12000])
-    schema = prompt_cfg.get("output_schema")
+    system   = prompt_cfg.get("system", "You are a political science researcher.")
+    user_msg = prompt_cfg["prompt"].replace("{text}", transcript[:12000])
+    schema   = prompt_cfg.get("output_schema")
+    gemini   = _is_gemini(llm_url)
+
+    # Gemini: json_schema enforces exact fields (equivalent to vllm guided_json)
+    # vllm:   guided_json via extra_body
+    if gemini and schema:
+        extra_kwargs = {"response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "analysis_result",
+                "strict": True,
+                "schema": schema,
+            },
+        }}
+    elif gemini:
+        extra_kwargs = {"response_format": {"type": "json_object"}}
+    else:
+        extra_kwargs = {"extra_body": {"guided_json": schema} if schema else {}}
 
     async with semaphore:
         for attempt in range(1, retries + 1):
@@ -128,7 +150,7 @@ async def call_llm(
                     ],
                     temperature=0.0,
                     max_tokens=2048,
-                    extra_body={"guided_json": schema} if schema else {},
+                    **extra_kwargs,
                 )
                 raw = resp.choices[0].message.content.strip()
                 # Strip Qwen3 <think>...</think> blocks
@@ -181,8 +203,14 @@ async def run(args):
     if not file_exists:
         writer.writeheader()
 
-    client    = AsyncOpenAI(
-        base_url=f"{args.llm_url.rstrip('/')}/v1",
+    # Gemini uses full URL as base; vllm needs /v1 appended
+    base_url = (
+        args.llm_url.rstrip("/")
+        if _is_gemini(args.llm_url)
+        else f"{args.llm_url.rstrip('/')}/v1"
+    )
+    client = AsyncOpenAI(
+        base_url=base_url,
         api_key=os.environ.get("LLM_API_KEY", "dummy"),
     )
     semaphore  = asyncio.Semaphore(args.concurrency)
@@ -204,7 +232,7 @@ async def run(args):
         nonlocal completed, errors, processed
 
         transcript = merge_episode(episode)
-        result     = await call_llm(client, semaphore, args.model, prompt_cfg, transcript)
+        result     = await call_llm(client, semaphore, args.model, prompt_cfg, transcript, llm_url=args.llm_url)
 
         row = {
             "date":    episode["date"],

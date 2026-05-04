@@ -12,8 +12,8 @@ import os
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-COLLECTION_NAME  = "Transcripts"
-CHROMA_DIR       = "chroma_db"
+COLLECTION_NAME   = "Transcripts"
+CHROMA_DIR        = os.environ.get("CHROMA_DIR", "chroma_db")
 CHROMA_COLLECTION = "transcripts"
 EMBED_MODEL_BGE  = "BAAI/bge-base-en-v1.5"    # used by Weaviate
 EMBED_MODEL_MINI = "all-MiniLM-L6-v2"          # used by existing ChromaDB index
